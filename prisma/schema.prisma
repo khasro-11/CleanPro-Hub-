@@ -1,0 +1,266 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  MITARBEITER
+}
+
+enum CustomerType {
+  PRIVAT
+  BUERO
+  INDUSTRIE
+  SONDER
+}
+
+enum ContractType {
+  EINMALIG
+  WOECHENTLICH
+  ZWEIMAL_MONATLICH
+  MONATLICH
+}
+
+enum CustomerStatus {
+  AKTIV
+  INAKTIV
+  ARCHIVIERT
+}
+
+enum EmployeeContractType {
+  VOLLZEIT
+  TEILZEIT
+  MINIJOB
+  AUSHILFE
+}
+
+enum EmployeeStatus {
+  AKTIV
+  KRANK
+  URLAUB
+  INAKTIV
+}
+
+enum JobStatus {
+  GEPLANT
+  IN_BEARBEITUNG
+  ABGESCHLOSSEN
+  ABGESAGT
+}
+
+enum RecurrenceType {
+  EINMALIG
+  TAEGLICH
+  WOECHENTLICH
+  ZWEIMAL_MONATLICH
+  MONATLICH
+}
+
+// ─────────────────────────────────────────────
+// Models
+// ─────────────────────────────────────────────
+
+model User {
+  id        String    @id @default(cuid())
+  email     String    @unique
+  password  String
+  role      Role      @default(MITARBEITER)
+  name      String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  employee   Employee?
+  auditLogs  AuditLog[]
+  agentUsage AgentUsage[]
+
+  @@index([email])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model Customer {
+  id           String         @id @default(cuid())
+  name         String
+  company      String?
+  street       String
+  zip          String
+  city         String
+  phone        String?
+  email        String?
+  customerType CustomerType
+  contractType ContractType
+  hourlyRate   Decimal?       @db.Decimal(10, 2)
+  flatRate     Decimal?       @db.Decimal(10, 2)
+  notes        String?        @db.Text
+  status       CustomerStatus @default(AKTIV)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  deletedAt    DateTime?
+
+  jobs Job[]
+
+  @@index([status])
+  @@index([deletedAt])
+  @@index([customerType])
+  @@map("customers")
+}
+
+model Employee {
+  id               String               @id @default(cuid())
+  userId           String?              @unique
+  firstName        String
+  lastName         String
+  photoUrl         String?
+  street           String?
+  zip              String?
+  city             String?
+  phone            String?
+  email            String?
+  birthDate        DateTime?            @db.Date
+  startDate        DateTime?            @db.Date
+  taxIdEncrypted   String?
+  svNumberEncrypted String?
+  hourlyWage       Decimal?             @db.Decimal(10, 2)
+  contractType     EmployeeContractType @default(VOLLZEIT)
+  status           EmployeeStatus       @default(AKTIV)
+  weeklyHours      Int?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  deletedAt        DateTime?
+
+  user        User?        @relation(fields: [userId], references: [id])
+  jobAssignments JobAssignment[]
+  timeEntries TimeEntry[]
+  schedules   Schedule[]
+
+  @@index([status])
+  @@index([deletedAt])
+  @@index([userId])
+  @@map("employees")
+}
+
+model Job {
+  id            String         @id @default(cuid())
+  customerId    String
+  title         String
+  description   String?        @db.Text
+  status        JobStatus      @default(GEPLANT)
+  scheduledAt   DateTime
+  duration      Int            // minutes
+  recurrence    RecurrenceType @default(EINMALIG)
+  parentJobId   String?
+  notes         String?        @db.Text
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  deletedAt     DateTime?
+
+  customer    Customer       @relation(fields: [customerId], references: [id])
+  parentJob   Job?           @relation("RecurringJobs", fields: [parentJobId], references: [id])
+  childJobs   Job[]          @relation("RecurringJobs")
+  assignments JobAssignment[]
+  timeEntries TimeEntry[]
+
+  @@index([status])
+  @@index([customerId])
+  @@index([scheduledAt])
+  @@index([deletedAt])
+  @@map("jobs")
+}
+
+model JobAssignment {
+  id         String   @id @default(cuid())
+  jobId      String
+  employeeId String
+  createdAt  DateTime @default(now())
+
+  job      Job      @relation(fields: [jobId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([jobId, employeeId])
+  @@index([jobId])
+  @@index([employeeId])
+  @@map("job_assignments")
+}
+
+model TimeEntry {
+  id          String    @id @default(cuid())
+  employeeId  String
+  jobId       String?
+  checkIn     DateTime
+  checkOut    DateTime?
+  durationMin Int?      // computed on checkout
+  latLng      String?   // "lat,lng" on check-in
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+  job      Job?     @relation(fields: [jobId], references: [id])
+
+  @@index([employeeId])
+  @@index([jobId])
+  @@index([checkIn])
+  @@map("time_entries")
+}
+
+model Schedule {
+  id         String   @id @default(cuid())
+  employeeId String
+  date       DateTime @db.Date
+  startTime  String   // "HH:mm"
+  endTime    String   // "HH:mm"
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId])
+  @@index([date])
+  @@map("schedules")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String   // e.g. "customer.create", "employee.update"
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model AgentUsage {
+  id           String   @id @default(cuid())
+  userId       String
+  sessionId    String
+  inputTokens  Int
+  outputTokens Int
+  model        String
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([sessionId])
+  @@index([createdAt])
+  @@map("agent_usage")
+}
