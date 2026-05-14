@@ -2,7 +2,7 @@
 
 ## Aktueller Stand
 
-**Aktive Phase: Phase 5 — Zeiterfassung & Tracker**
+**Aktive Phase: Phase 6 — Dashboard & KPIs**
 
 ---
 
@@ -65,9 +65,9 @@
 
 ---
 
-## Phase 5 — Zeiterfassung & Tracker
+## Phase 5 — Zeiterfassung & Tracker ✅
 
-**Status:** In Bearbeitung  
+**Status:** Abgeschlossen  
 **Umfang:**
 - Check-in/Check-out mit GPS
 - Stundenauswertung pro Mitarbeiter
@@ -78,7 +78,7 @@
 
 ## Phase 6 — Dashboard & KPIs
 
-**Status:** Ausstehend  
+**Status:** In Bearbeitung  
 **Umfang:**
 - KPI-Karten (Kunden, Mitarbeiter, Aufträge, Umsatz)
 - Balkendiagramm: Stunden pro Mitarbeiter (recharts)
