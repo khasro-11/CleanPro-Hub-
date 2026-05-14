@@ -96,8 +96,15 @@ export async function updateCustomer(id: string, data: Partial<CustomerFormData>
 }
 
 export async function softDeleteCustomer(id: string) {
-  return prisma.customer.update({
-    where: { id, deletedAt: null },
-    data: { deletedAt: new Date() },
-  });
+  const now = new Date();
+  return prisma.$transaction([
+    prisma.job.updateMany({
+      where: { customerId: id, deletedAt: null },
+      data: { deletedAt: now },
+    }),
+    prisma.customer.update({
+      where: { id, deletedAt: null },
+      data: { deletedAt: now },
+    }),
+  ]);
 }

@@ -2,7 +2,7 @@
 
 ## Aktueller Stand
 
-**Aktive Phase: Phase 6 — Dashboard & KPIs**
+**Aktive Phase: Phase 8 — Polish**
 
 ---
 
@@ -90,7 +90,7 @@
 
 ## Phase 7 — KI-Agent
 
-**Status:** Ausstehend  
+**Status:** Abgeschlossen  
 **Umfang:**
 - Floating Chat-Button auf allen Seiten
 - Anthropic Claude API, Streaming, Tool-Use

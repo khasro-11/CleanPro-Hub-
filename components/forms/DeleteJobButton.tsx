@@ -28,6 +28,7 @@ export function DeleteJobButton({ jobId, jobTitle }: DeleteJobButtonProps) {
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
+    mutationKey: ["jobs", "delete", jobId],
     mutationFn: async () => {
       const res = await fetch(`/api/jobs/${jobId}`, { method: "DELETE" });
       const json = (await res.json()) as ApiResponse<{ id: string }>;

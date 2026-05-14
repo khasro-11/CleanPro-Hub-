@@ -33,6 +33,7 @@ export function JobStatusButton({ jobId, currentStatus }: JobStatusButtonProps) 
   const next = TRANSITIONS[currentStatus];
 
   const mutation = useMutation({
+    mutationKey: ["jobs", "status", jobId],
     mutationFn: async (status: JobStatus) => {
       const res = await fetch(`/api/jobs/${jobId}/status`, {
         method: "PATCH",

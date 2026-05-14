@@ -41,6 +41,7 @@ export function EmployeeForm({ mode, employeeId, defaultValues }: EmployeeFormPr
   });
 
   const mutation = useMutation({
+    mutationKey: ["employees", mode, employeeId],
     mutationFn: async (data: EmployeeFormInput) => {
       const url = mode === "create" ? "/api/employees" : `/api/employees/${employeeId}`;
       const method = mode === "create" ? "POST" : "PATCH";

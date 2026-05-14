@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { employeeUpdateSchema } from "@/types/employee.schema";
+import { employeeApiUpdateBodySchema } from "@/types/employee.schema";
 import { getEmployeeById, updateEmployee, softDeleteEmployee } from "@/lib/employees/queries";
 import { apiSuccess, apiError } from "@/types/api";
 import { logger } from "@/lib/logger";
@@ -47,7 +47,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json(apiError("BAD_REQUEST", "Ungültiger JSON-Body."), { status: 400 });
   }
 
-  const parsed = employeeUpdateSchema.safeParse(body);
+  const parsed = employeeApiUpdateBodySchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       apiError("VALIDATION_ERROR", "Validierungsfehler.", parsed.error.flatten()),

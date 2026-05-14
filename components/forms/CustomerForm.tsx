@@ -41,6 +41,7 @@ export function CustomerForm({ mode, customerId, defaultValues }: CustomerFormPr
   });
 
   const mutation = useMutation({
+    mutationKey: ["customers", mode, customerId],
     mutationFn: async (data: CustomerFormInput) => {
       const url = mode === "create" ? "/api/customers" : `/api/customers/${customerId}`;
       const method = mode === "create" ? "POST" : "PATCH";

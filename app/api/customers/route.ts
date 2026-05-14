@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { customerFormSchema, customerListQuerySchema } from "@/types/customer.schema";
+import { customerApiBodySchema, customerListQuerySchema } from "@/types/customer.schema";
 import { createCustomer, listCustomers } from "@/lib/customers/queries";
 import { apiSuccess, apiError } from "@/types/api";
 import { logger } from "@/lib/logger";
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(apiError("BAD_REQUEST", "Ungültiger JSON-Body."), { status: 400 });
   }
 
-  const parsed = customerFormSchema.safeParse(body);
+  const parsed = customerApiBodySchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       apiError("VALIDATION_ERROR", "Validierungsfehler.", parsed.error.flatten()),

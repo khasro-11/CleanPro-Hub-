@@ -29,6 +29,15 @@ export const customerUpdateSchema = customerFormSchema.partial().extend({
   status: z.nativeEnum(CustomerStatus).optional(),
 });
 
+// API body schemas — accept numbers directly (form's zodResolver already ran the string→number transform)
+export const customerApiBodySchema = customerFormSchema.extend({
+  hourlyRate: z.number().positive("Stundensatz muss positiv sein.").optional(),
+  flatRate: z.number().positive("Pauschalpreis muss positiv sein.").optional(),
+});
+export const customerApiUpdateBodySchema = customerApiBodySchema.partial().extend({
+  status: z.nativeEnum(CustomerStatus).optional(),
+});
+
 export const customerListQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),

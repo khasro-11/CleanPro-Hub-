@@ -85,6 +85,7 @@ export function CheckInCard({ employeeId }: CheckInCardProps) {
   }, []);
 
   const checkInMutation = useMutation({
+    mutationKey: ["time-entries", "check-in", employeeId],
     mutationFn: async () => {
       const latLng = await getGps();
       const res = await fetch("/api/time-entries", {
@@ -112,6 +113,7 @@ export function CheckInCard({ employeeId }: CheckInCardProps) {
   });
 
   const checkOutMutation = useMutation({
+    mutationKey: ["time-entries", "check-out", employeeId],
     mutationFn: async (entryId: string) => {
       const res = await fetch(`/api/time-entries/${entryId}`, {
         method: "PATCH",

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { employeeFormSchema, employeeListQuerySchema } from "@/types/employee.schema";
+import { employeeApiBodySchema, employeeListQuerySchema } from "@/types/employee.schema";
 import { createEmployee, listEmployees } from "@/lib/employees/queries";
 import { apiSuccess, apiError } from "@/types/api";
 import { logger } from "@/lib/logger";
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(apiError("BAD_REQUEST", "Ungültiger JSON-Body."), { status: 400 });
   }
 
-  const parsed = employeeFormSchema.safeParse(body);
+  const parsed = employeeApiBodySchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       apiError("VALIDATION_ERROR", "Validierungsfehler.", parsed.error.flatten()),

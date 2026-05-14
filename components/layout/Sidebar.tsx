@@ -10,6 +10,7 @@ import {
   Calendar,
   Clock,
   BarChart3,
+  Bot,
   Settings,
   Sparkles,
 } from "lucide-react";
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/kalender", label: "Kalender", icon: Calendar },
   { href: "/zeiterfassung", label: "Zeiterfassung", icon: Clock },
   { href: "/berichte", label: "Berichte", icon: BarChart3 },
+  { href: "/assistent", label: "KI-Assistent", icon: Bot },
 ];
 
 const bottomItems = [

@@ -28,6 +28,7 @@ export function DeleteCustomerButton({ customerId, customerName }: DeleteCustome
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
+    mutationKey: ["customers", "delete", customerId],
     mutationFn: async () => {
       const res = await fetch(`/api/customers/${customerId}`, { method: "DELETE" });
       const json = (await res.json()) as ApiResponse<{ id: string }>;

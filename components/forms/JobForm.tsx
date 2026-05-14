@@ -40,6 +40,7 @@ export function JobForm({ mode, jobId, defaultValues }: JobFormProps) {
   });
 
   const mutation = useMutation({
+    mutationKey: ["jobs", mode, jobId],
     mutationFn: async (data: JobFormInput) => {
       const url = mode === "create" ? "/api/jobs" : `/api/jobs/${jobId}`;
       const method = mode === "create" ? "POST" : "PATCH";

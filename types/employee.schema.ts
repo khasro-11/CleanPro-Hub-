@@ -32,6 +32,12 @@ export const employeeFormSchema = z.object({
 
 export const employeeUpdateSchema = employeeFormSchema.partial();
 
+// API body schemas — accept numbers directly (form's zodResolver already ran the string→number transform)
+export const employeeApiBodySchema = employeeFormSchema.extend({
+  hourlyWage: z.number().positive("Stundenlohn muss positiv sein.").optional(),
+});
+export const employeeApiUpdateBodySchema = employeeApiBodySchema.partial();
+
 export const employeeListQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),

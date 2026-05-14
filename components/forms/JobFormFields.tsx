@@ -26,7 +26,7 @@ export function JobFormFields({ form, showStatus = false }: JobFormFieldsProps) 
   const { data: customers } = useQuery<{ customers: CustomerOption[] }>({
     queryKey: ["customers-select"],
     queryFn: async () => {
-      const res = await fetch("/api/customers?status=AKTIV&limit=200&sortBy=name&sortOrder=asc");
+      const res = await fetch("/api/customers?status=AKTIV&limit=100&sortBy=name&sortOrder=asc");
       const json = (await res.json()) as { ok: boolean; data: { customers: CustomerOption[] } };
       if (!json.ok) throw new Error("Fehler beim Laden.");
       return json.data;
@@ -50,7 +50,7 @@ export function JobFormFields({ form, showStatus = false }: JobFormFieldsProps) 
           <FormField control={form.control} name="customerId" render={({ field }) => (
             <FormItem>
               <FormLabel>Kunde *</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} value={field.value ?? ""}>
                 <FormControl>
                   <SelectTrigger><SelectValue placeholder="Kunden auswählen" /></SelectTrigger>
                 </FormControl>
@@ -87,7 +87,7 @@ export function JobFormFields({ form, showStatus = false }: JobFormFieldsProps) 
             <FormField control={form.control} name="recurrence" render={({ field }) => (
               <FormItem>
                 <FormLabel>Wiederholung</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} value={field.value ?? ""}>
                   <FormControl>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                   </FormControl>
@@ -104,7 +104,7 @@ export function JobFormFields({ form, showStatus = false }: JobFormFieldsProps) 
               <FormField control={form.control} name="status" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Status</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value ?? ""}>
                     <FormControl>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                     </FormControl>
