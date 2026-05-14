@@ -15,16 +15,28 @@ const JOB_INCLUDE = {
 export type JobWithDetails = Prisma.JobGetPayload<{ include: typeof JOB_INCLUDE }>;
 
 export async function listJobs(query: JobListQuery) {
-  const { page, limit, search, status, customerId, employeeId, from, to, sortBy, sortOrder } = query;
+  const { page, limit, search, status, statuses, customerId, employeeId, employees, from, to, sortBy, sortOrder } = query;
   const skip = (page - 1) * limit;
+
+  // Multi-value filters (calendar) take precedence over single-value filters (list pages)
+  const employeeIds = employees?.split(",").filter(Boolean);
+  const statusList = statuses?.split(",").filter(Boolean) as import("@prisma/client").JobStatus[] | undefined;
+
+  // Build scheduledAt filter without spread-overwrite bug
+  const scheduledAt: Prisma.DateTimeFilter = {};
+  if (from) scheduledAt.gte = new Date(from);
+  if (to) scheduledAt.lte = new Date(to);
 
   const where: Prisma.JobWhereInput = {
     deletedAt: null,
-    ...(status && { status }),
+    ...(statusList?.length ? { status: { in: statusList } } : status ? { status } : {}),
     ...(customerId && { customerId }),
-    ...(employeeId && { assignments: { some: { employeeId } } }),
-    ...(from && { scheduledAt: { gte: new Date(from) } }),
-    ...(to && { scheduledAt: { lte: new Date(to) } }),
+    ...(employeeIds?.length
+      ? { assignments: { some: { employeeId: { in: employeeIds } } } }
+      : employeeId
+      ? { assignments: { some: { employeeId } } }
+      : {}),
+    ...((from || to) && { scheduledAt }),
     ...(search && {
       OR: [
         { title: { contains: search, mode: "insensitive" } },

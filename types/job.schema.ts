@@ -25,11 +25,13 @@ export const jobStatusSchema = z.object({
 
 export const jobListQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(25),
+  limit: z.coerce.number().int().min(1).max(500).default(25),
   search: z.string().optional(),
   status: z.nativeEnum(JobStatus).optional(),
+  statuses: z.string().optional(), // comma-separated JobStatus values for calendar multi-filter
   customerId: z.string().optional(),
   employeeId: z.string().optional(),
+  employees: z.string().optional(), // comma-separated employee IDs for calendar multi-filter
   from: z.string().optional(), // ISO date
   to: z.string().optional(),   // ISO date
   sortBy: z.enum(["scheduledAt", "createdAt", "status", "title"]).default("scheduledAt"),

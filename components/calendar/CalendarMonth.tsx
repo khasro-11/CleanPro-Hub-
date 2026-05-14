@@ -65,8 +65,8 @@ export function CalendarMonth({ currentDate, jobs }: CalendarMonthProps) {
                 </span>
               </div>
 
-              <div className="space-y-0.5">
-                {dayJobs.slice(0, 3).map((job) => (
+              <div className="space-y-0.5 overflow-y-auto overscroll-contain" style={{ maxHeight: "5rem" }}>
+                {dayJobs.map((job) => (
                   <Link
                     key={job.id}
                     href={`/auftraege/${job.id}`}
@@ -81,11 +81,6 @@ export function CalendarMonth({ currentDate, jobs }: CalendarMonthProps) {
                     {job.title}
                   </Link>
                 ))}
-                {dayJobs.length > 3 && (
-                  <p className="pl-1.5 text-xs text-muted-foreground">
-                    +{dayJobs.length - 3} weitere
-                  </p>
-                )}
               </div>
             </div>
           );

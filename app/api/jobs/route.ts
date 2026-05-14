@@ -21,6 +21,18 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  // MITARBEITER can only see their own jobs
+  if (session.user.role === "MITARBEITER") {
+    const emp = await prisma.employee.findFirst({
+      where: { userId: session.user.id, deletedAt: null },
+      select: { id: true },
+    });
+    if (emp) {
+      parsed.data.employeeId = emp.id;
+      parsed.data.employees = undefined;
+    }
+  }
+
   const result = await listJobs(parsed.data);
   return NextResponse.json(apiSuccess(result));
 }

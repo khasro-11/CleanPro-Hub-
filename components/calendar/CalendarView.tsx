@@ -1,15 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { addMonths, addWeeks, subMonths, subWeeks, format, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
-import { de } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, CalendarDays, CalendarRange } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { format, parseISO, addMonths, subMonths, addWeeks, subWeeks, addDays, subDays } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarMonth } from "./CalendarMonth";
-import { CalendarWeek } from "./CalendarWeek";
+import { Button } from "@/components/ui/button";
 import type { JobStatus, RecurrenceType } from "@prisma/client";
+import { getDateRange, formatPeriod, type CalendarView as CalendarViewType } from "@/lib/calendar/date-helpers";
+import { CalendarHeader } from "./CalendarHeader";
+import { CalendarFilters } from "./CalendarFilters";
+import { MonthView } from "./MonthView";
+import { WeekView } from "./WeekView";
+import { DayView } from "./DayView";
+import { NewJobDialog } from "./NewJobDialog";
 
 export interface CalendarJob {
   id: string;
@@ -22,110 +26,157 @@ export interface CalendarJob {
   assignments: { employee: { id: string; firstName: string; lastName: string } }[];
 }
 
-type ViewMode = "month" | "week";
+const DEFAULT_STATUSES = "GEPLANT,IN_BEARBEITUNG,ABGESCHLOSSEN";
 
-function toISODate(d: Date) {
-  return format(d, "yyyy-MM-dd");
+async function fetchJobs(
+  fromStr: string, toStr: string,
+  employees: string, statuses: string, search: string
+): Promise<CalendarJob[]> {
+  const p = new URLSearchParams({ from: fromStr, to: toStr, limit: "500" });
+  if (employees) p.set("employees", employees);
+  if (statuses) p.set("statuses", statuses);
+  if (search) p.set("search", search);
+  const res = await fetch(`/api/jobs?${p}`);
+  const json = await res.json() as { ok: boolean; data: { jobs: CalendarJob[] } };
+  if (!json.ok) throw new Error("Fehler beim Laden der Kalendereinträge.");
+  return json.data.jobs;
 }
 
-export function CalendarView() {
-  const [viewMode, setViewMode] = useState<ViewMode>("month");
-  const [currentDate, setCurrentDate] = useState(new Date());
+interface CalendarViewProps {
+  isAdmin: boolean;
+}
 
-  const rangeStart =
-    viewMode === "month"
-      ? startOfWeek(startOfMonth(currentDate), { weekStartsOn: 1 })
-      : startOfWeek(currentDate, { weekStartsOn: 1 });
+export function CalendarView({ isAdmin }: CalendarViewProps) {
+  const router = useRouter();
+  const params = useSearchParams();
+  const queryClient = useQueryClient();
 
-  const rangeEnd =
-    viewMode === "month"
-      ? endOfWeek(endOfMonth(currentDate), { weekStartsOn: 1 })
-      : endOfWeek(currentDate, { weekStartsOn: 1 });
+  const view = (params.get("view") ?? "monat") as CalendarViewType;
+  const dateParam = params.get("date");
+  const currentDate = dateParam ? parseISO(dateParam) : new Date();
+  const employeesParam = params.get("employees") ?? "";
+  const statusesParam = params.get("statuses") ?? DEFAULT_STATUSES;
+  const searchParam = params.get("search") ?? "";
 
-  const from = toISODate(rangeStart);
-  const to = toISODate(rangeEnd);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [prefillDateTime, setPrefillDateTime] = useState("");
 
-  const { data, isLoading } = useQuery<{ jobs: CalendarJob[] }>({
-    queryKey: ["calendar-jobs", from, to],
-    queryFn: async () => {
-      const res = await fetch(`/api/jobs?from=${from}&to=${to}&limit=500`);
-      const json = (await res.json()) as { ok: boolean; data: { jobs: CalendarJob[] } };
-      if (!json.ok) throw new Error("Fehler beim Laden der Kalendereinträge.");
-      return json.data;
-    },
+  function updateParams(updates: Record<string, string>) {
+    const p = new URLSearchParams(params.toString());
+    for (const [k, v] of Object.entries(updates)) {
+      if (!v) p.delete(k); else p.set(k, v);
+    }
+    router.push(`?${p.toString()}`, { scroll: false });
+  }
+
+  const { from, to } = getDateRange(currentDate, view);
+  const fromStr = format(from, "yyyy-MM-dd");
+  const toStr = format(to, "yyyy-MM-dd");
+
+  const { data: jobs, isLoading } = useQuery<CalendarJob[]>({
+    queryKey: ["calendar-jobs", fromStr, toStr, employeesParam, statusesParam, searchParam],
+    queryFn: () => fetchJobs(fromStr, toStr, employeesParam, statusesParam, searchParam),
   });
 
-  function prev() {
-    if (viewMode === "month") setCurrentDate((d) => subMonths(d, 1));
-    else setCurrentDate((d) => subWeeks(d, 1));
+  // Prefetch adjacent periods — deps are stable strings so no exhaustive-deps concern
+  useEffect(() => {
+    const cd = dateParam ? parseISO(dateParam) : new Date();
+    const prefetch = (d: Date) => {
+      const { from: f, to: t } = getDateRange(d, view);
+      const fs = format(f, "yyyy-MM-dd");
+      const ts = format(t, "yyyy-MM-dd");
+      queryClient.prefetchQuery({
+        queryKey: ["calendar-jobs", fs, ts, employeesParam, statusesParam, searchParam],
+        queryFn: () => fetchJobs(fs, ts, employeesParam, statusesParam, searchParam),
+      });
+    };
+    if (view === "monat") { prefetch(addMonths(cd, 1)); prefetch(subMonths(cd, 1)); }
+    else if (view === "woche") { prefetch(addWeeks(cd, 1)); prefetch(subWeeks(cd, 1)); }
+    else { prefetch(addDays(cd, 1)); prefetch(subDays(cd, 1)); }
+  }, [dateParam, view, employeesParam, statusesParam, searchParam, queryClient]);
+
+  function navigate(dir: 1 | -1) {
+    let d: Date;
+    if (view === "monat") d = dir === 1 ? addMonths(currentDate, 1) : subMonths(currentDate, 1);
+    else if (view === "woche") d = dir === 1 ? addWeeks(currentDate, 1) : subWeeks(currentDate, 1);
+    else d = dir === 1 ? addDays(currentDate, 1) : subDays(currentDate, 1);
+    updateParams({ date: format(d, "yyyy-MM-dd") });
   }
 
-  function next() {
-    if (viewMode === "month") setCurrentDate((d) => addMonths(d, 1));
-    else setCurrentDate((d) => addWeeks(d, 1));
+  function openDialog(dateTimeStr: string) {
+    setPrefillDateTime(dateTimeStr);
+    setDialogOpen(true);
   }
 
-  function goToToday() {
-    setCurrentDate(new Date());
-  }
-
-  const title =
-    viewMode === "month"
-      ? format(currentDate, "MMMM yyyy", { locale: de })
-      : `KW ${format(currentDate, "w")} · ${format(currentDate, "MMMM yyyy", { locale: de })}`;
+  const allJobs = jobs ?? [];
+  const hasFilters = employeesParam || statusesParam !== DEFAULT_STATUSES || searchParam;
 
   return (
-    <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={goToToday}>
-            Heute
-          </Button>
-          <Button variant="ghost" size="icon" onClick={prev} aria-label="Vorherige Periode">
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={next} aria-label="Nächste Periode">
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          <h2 className="text-base font-semibold capitalize">{title}</h2>
-        </div>
+    <div className="space-y-3">
+      <CalendarHeader
+        view={view}
+        periodTitle={formatPeriod(currentDate, view)}
+        onViewChange={(v) => updateParams({ view: v, date: format(currentDate, "yyyy-MM-dd") })}
+        onPrev={() => navigate(-1)}
+        onNext={() => navigate(1)}
+        onToday={() => updateParams({ date: format(new Date(), "yyyy-MM-dd") })}
+      />
 
-        <div className="flex items-center rounded-lg border border-border p-0.5 gap-0.5">
-          <Button
-            variant={viewMode === "month" ? "default" : "ghost"}
-            size="sm"
-            className={viewMode === "month" ? "bg-brand-500 hover:bg-brand-600" : ""}
-            onClick={() => setViewMode("month")}
-          >
-            <CalendarDays className="mr-1.5 h-4 w-4" />
-            Monat
-          </Button>
-          <Button
-            variant={viewMode === "week" ? "default" : "ghost"}
-            size="sm"
-            className={viewMode === "week" ? "bg-brand-500 hover:bg-brand-600" : ""}
-            onClick={() => setViewMode("week")}
-          >
-            <CalendarRange className="mr-1.5 h-4 w-4" />
-            Woche
-          </Button>
-        </div>
-      </div>
+      <CalendarFilters
+        isAdmin={isAdmin}
+        selectedEmployees={employeesParam ? employeesParam.split(",") : []}
+        selectedStatuses={statusesParam ? statusesParam.split(",") : []}
+        search={searchParam}
+        onEmployeesChange={(ids) => updateParams({ employees: ids.join(",") })}
+        onStatusesChange={(ss) => updateParams({ statuses: ss.join(",") })}
+        onSearchChange={(s) => updateParams({ search: s })}
+        onReset={() => updateParams({ employees: "", statuses: DEFAULT_STATUSES, search: "" })}
+      />
 
-      {/* Calendar body */}
       {isLoading ? (
-        <div className="rounded-xl border border-border/60 shadow-elevated p-4 space-y-3">
+        <div className="rounded-xl border border-border/60 bg-card shadow-elevated p-4 space-y-3">
           <Skeleton className="h-8 w-full" />
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-20 w-full" />
           ))}
         </div>
-      ) : viewMode === "month" ? (
-        <CalendarMonth currentDate={currentDate} jobs={data?.jobs ?? []} />
+      ) : allJobs.length === 0 && hasFilters ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-border/60 bg-card shadow-elevated py-20 gap-3">
+          <p className="text-sm text-muted-foreground">Keine Termine im gewählten Zeitraum.</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => updateParams({ employees: "", statuses: DEFAULT_STATUSES, search: "" })}
+          >
+            Filter zurücksetzen
+          </Button>
+        </div>
+      ) : view === "monat" ? (
+        <MonthView
+          currentDate={currentDate}
+          jobs={allJobs}
+          onEmptyCellClick={(d) => openDialog(`${d}T08:00`)}
+          onDayClick={(d) => updateParams({ view: "tag", date: d })}
+        />
+      ) : view === "woche" ? (
+        <WeekView
+          currentDate={currentDate}
+          jobs={allJobs}
+          onHourClick={openDialog}
+        />
       ) : (
-        <CalendarWeek currentDate={currentDate} jobs={data?.jobs ?? []} />
+        <DayView
+          currentDate={currentDate}
+          jobs={allJobs}
+          onHourClick={openDialog}
+        />
       )}
+
+      <NewJobDialog
+        open={dialogOpen}
+        prefillDateTime={prefillDateTime}
+        onClose={() => setDialogOpen(false)}
+      />
     </div>
   );
 }
